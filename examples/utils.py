@@ -17,36 +17,8 @@ from tesseract_robotics.tesseract_motion_planners_simple import (
     ProfileDictionary_addProfile_SimplePlannerPlanProfile,
     ProfileDictionary_addProfile_SimplePlannerCompositeProfile,
 )
-from tesseract_robotics.tesseract_motion_planners_trajopt import (
-    TrajOptDefaultPlanProfile,
-    TrajOptDefaultCompositeProfile,
-    CollisionEvaluatorType_SINGLE_TIMESTEP,
-    TrajOptDefaultSolverProfile,
-    BasicTrustRegionSQPParameters,
-    ModelType,
-    ProfileDictionary_addProfile_TrajOptPlanProfile,
-    ProfileDictionary_addProfile_TrajOptSolverProfile,
-    ProfileDictionary_addProfile_TrajOptCompositeProfile,
-)
-from tesseract_robotics.tesseract_task_composer import (
-    TaskComposerDataStorage,
-    TaskComposerNode,
-    TaskComposerPluginFactory,
-    PlanningTaskComposerProblemUPtr,
-    PlanningTaskComposerProblemUPtr_as_TaskComposerProblemUPtr,
-    TaskComposerInput,
-    ProfileDictionary_addProfile_CheckInputProfile,
-    ProfileDictionary_addProfile_ContactCheckProfile,
-    ProfileDictionary_addProfile_FixStateBoundsProfile,
-    ProfileDictionary_addProfile_FixStateCollisionProfile,
-    ProfileDictionary_addProfile_IterativeSplineParameterizationProfile,
-    ProfileDictionary_addProfile_MinLengthProfile,
-    ProfileDictionary_addProfile_ProfileSwitchProfile,
-    ProfileDictionary_addProfile_RuckigTrajectorySmoothingCompositeProfile,
-    ProfileDictionary_addProfile_RuckigTrajectorySmoothingMoveProfile,
-    ProfileDictionary_addProfile_TimeOptimalParameterizationProfile,
-    ProfileDictionary_addProfile_UpsampleTrajectoryProfile,
-)
+from tesseract_robotics import tesseract_motion_planners_trajopt as t_mpl_trajopt
+from tesseract_robotics import tesseract_task_composer as t_task_comp
 
 from tesseract_viewer_python.tesseract_robotics_viewer import TesseractViewer
 
@@ -66,21 +38,21 @@ PROFILE_LUT = {
     "SimplePlannerPlanProfile": ProfileDictionary_addProfile_SimplePlannerPlanProfile,
     "SimplePlannerCompositeProfile": ProfileDictionary_addProfile_SimplePlannerCompositeProfile,
     # trajopt
-    "TrajOptSolverProfile": ProfileDictionary_addProfile_TrajOptSolverProfile,
-    "TrajOptPlanProfile": ProfileDictionary_addProfile_TrajOptPlanProfile,
-    "TrajOptCompositeProfile": ProfileDictionary_addProfile_TrajOptCompositeProfile,
+    "TrajOptSolverProfile": t_mpl_trajopt.ProfileDictionary_addProfile_TrajOptSolverProfile,
+    "TrajOptPlanProfile": t_mpl_trajopt.ProfileDictionary_addProfile_TrajOptPlanProfile,
+    "TrajOptCompositeProfile": t_mpl_trajopt.ProfileDictionary_addProfile_TrajOptCompositeProfile,
     # task composer
-    "CheckInputProfile": ProfileDictionary_addProfile_CheckInputProfile,
-    "ContactCheckProfile": ProfileDictionary_addProfile_ContactCheckProfile,
-    "FixStateBoundsProfile": ProfileDictionary_addProfile_FixStateBoundsProfile,
-    "FixStateCollisionProfile": ProfileDictionary_addProfile_FixStateCollisionProfile,
-    "IterativeSplineParameterizationProfile": ProfileDictionary_addProfile_IterativeSplineParameterizationProfile,
-    "MinLengthProfile": ProfileDictionary_addProfile_MinLengthProfile,
-    "ProfileSwitchProfile": ProfileDictionary_addProfile_ProfileSwitchProfile,
-    "RuckigTrajectorySmoothingCompositeProfile": ProfileDictionary_addProfile_RuckigTrajectorySmoothingCompositeProfile,
-    "RuckigTrajectorySmoothingMoveProfile": ProfileDictionary_addProfile_RuckigTrajectorySmoothingMoveProfile,
-    "TimeOptimalParameterizationProfile": ProfileDictionary_addProfile_TimeOptimalParameterizationProfile,
-    "UpsampleTrajectoryProfile": ProfileDictionary_addProfile_UpsampleTrajectoryProfile,
+    "CheckInputProfile": t_task_comp.ProfileDictionary_addProfile_CheckInputProfile,
+    "ContactCheckProfile": t_task_comp.ProfileDictionary_addProfile_ContactCheckProfile,
+    "FixStateBoundsProfile": t_task_comp.ProfileDictionary_addProfile_FixStateBoundsProfile,
+    "FixStateCollisionProfile": t_task_comp.ProfileDictionary_addProfile_FixStateCollisionProfile,
+    "IterativeSplineParameterizationProfile": t_task_comp.ProfileDictionary_addProfile_IterativeSplineParameterizationProfile,
+    "MinLengthProfile": t_task_comp.ProfileDictionary_addProfile_MinLengthProfile,
+    "ProfileSwitchProfile": t_task_comp.ProfileDictionary_addProfile_ProfileSwitchProfile,
+    "RuckigTrajectorySmoothingCompositeProfile": t_task_comp.ProfileDictionary_addProfile_RuckigTrajectorySmoothingCompositeProfile,
+    "RuckigTrajectorySmoothingMoveProfile": t_task_comp.ProfileDictionary_addProfile_RuckigTrajectorySmoothingMoveProfile,
+    "TimeOptimalParameterizationProfile": t_task_comp.ProfileDictionary_addProfile_TimeOptimalParameterizationProfile,
+    "UpsampleTrajectoryProfile": t_task_comp.ProfileDictionary_addProfile_UpsampleTrajectoryProfile,
 }
 
 
@@ -147,7 +119,7 @@ def create_trajopt_profile_glass_example() -> t_lang.ProfileDictionary:
     profile = t_lang.ProfileDictionary()
 
     # todo: no ifopt
-    composite_profile = TrajOptDefaultCompositeProfile()
+    composite_profile = t_mpl_trajopt.TrajOptDefaultCompositeProfile()
 
     composite_profile.collision_cost_config.enabled = True
     # todo: expected tc.CollisionEvaluatorType_DISCRETE_CONTINUOUS
@@ -170,17 +142,17 @@ def create_trajopt_profile_glass_example() -> t_lang.ProfileDictionary:
     # by inspecting composite_profile.__class__ to have something a little more
     # pythonic
 
-    ProfileDictionary_addProfile_TrajOptCompositeProfile(
+    t_mpl_trajopt.ProfileDictionary_addProfile_TrajOptCompositeProfile(
         profile, TRAJOPT_DEFAULT_NAMESPACE, "UPRIGHT", composite_profile
     )
 
-    plan_profile = TrajOptDefaultPlanProfile()
+    plan_profile = t_mpl_trajopt.TrajOptDefaultPlanProfile()
     plan_profile.joint_coeff = np.ones((7,))
     plan_profile.cartesian_coeff = np.array(
         [0.0, 0.0, 0.0, 5.0, 5.0, 5.0],
     )
 
-    ProfileDictionary_addProfile_TrajOptPlanProfile(
+    t_mpl_trajopt.ProfileDictionary_addProfile_TrajOptPlanProfile(
         profile, TRAJOPT_DEFAULT_NAMESPACE, "UPRIGHT", plan_profile
     )
     return profile
@@ -188,28 +160,28 @@ def create_trajopt_profile_glass_example() -> t_lang.ProfileDictionary:
 
 def create_trajopt_profile_puzzle_example() -> t_lang.ProfileDictionary:
     # Create TrajOpt Profile
-    trajopt_plan_profile = TrajOptDefaultPlanProfile()
+    trajopt_plan_profile = t_mpl_trajopt.TrajOptDefaultPlanProfile()
     trajopt_plan_profile.cartesian_coeff = np.array(
         [10, 10, 10, 10, 10, 0], dtype=np.float64
     )
 
-    trajopt_composite_profile = TrajOptDefaultCompositeProfile()
+    trajopt_composite_profile = t_mpl_trajopt.TrajOptDefaultCompositeProfile()
     trajopt_composite_profile.collision_constraint_config.enabled = False
     trajopt_composite_profile.collision_cost_config.enabled = True
     trajopt_composite_profile.collision_cost_config.safety_margin = 0.025
     trajopt_composite_profile.collision_cost_config.type = (
-        CollisionEvaluatorType_SINGLE_TIMESTEP
+        t_mpl_trajopt.CollisionEvaluatorType_SINGLE_TIMESTEP
     )
     trajopt_composite_profile.collision_cost_config.coeff = 20
 
-    trajopt_solver_profile = TrajOptDefaultSolverProfile()
+    trajopt_solver_profile = t_mpl_trajopt.TrajOptDefaultSolverProfile()
 
-    btr_params = BasicTrustRegionSQPParameters()
+    btr_params = t_mpl_trajopt.BasicTrustRegionSQPParameters()
     btr_params.max_iter = 200
     btr_params.min_approx_improve = 1e-3
     btr_params.min_trust_box_size = 1e-3
 
-    mt = ModelType(ModelType.OSQP)
+    mt = t_mpl_trajopt.ModelType(t_mpl_trajopt.ModelType.OSQP)
     # seems to do its job: fails when I set gurobi; not build with that options
     # mt = ModelType(ModelType.GUROBI)
 
@@ -218,15 +190,15 @@ def create_trajopt_profile_puzzle_example() -> t_lang.ProfileDictionary:
 
     # Create profile dictionary
     trajopt_profiles = t_lang.ProfileDictionary()
-    ProfileDictionary_addProfile_TrajOptPlanProfile(
+    t_mpl_trajopt.ProfileDictionary_addProfile_TrajOptPlanProfile(
         trajopt_profiles, TRAJOPT_DEFAULT_NAMESPACE, "CARTESIAN", trajopt_plan_profile
     )
 
-    ProfileDictionary_addProfile_TrajOptSolverProfile(
+    t_mpl_trajopt.ProfileDictionary_addProfile_TrajOptSolverProfile(
         trajopt_profiles, TRAJOPT_DEFAULT_NAMESPACE, "DEFAULT", trajopt_solver_profile
     )
 
-    ProfileDictionary_addProfile_TrajOptCompositeProfile(
+    t_mpl_trajopt.ProfileDictionary_addProfile_TrajOptCompositeProfile(
         trajopt_profiles,
         TRAJOPT_DEFAULT_NAMESPACE,
         "DEFAULT",
@@ -400,7 +372,7 @@ class TesseractTaskComposer:  # TODO: poorly named nothing better comes to mind
     def __init__(self, planner: TesseractPlanner):
         self.planner = planner  # reference to the parent class
         fs_pth = tesseract_task_composer_config_file()
-        self.factory = TaskComposerPluginFactory(fs_pth)
+        self.factory = t_task_comp.TaskComposerPluginFactory(fs_pth)
         self.profile = t_lang.ProfileDictionary()
 
     def add_program(
@@ -420,18 +392,20 @@ class TesseractTaskComposer:  # TODO: poorly named nothing better comes to mind
         # support implicit conversion from the CompositeInstruction to the AnyPoly
         self.program_anypoly = t_lang.AnyPoly_wrap_CompositeInstruction(program)
 
-        self.task_data = TaskComposerDataStorage()
+        self.task_data = t_task_comp.TaskComposerDataStorage()
         self.task_data.setData(input_key, self.program_anypoly)
 
         # Create the task problem and input
-        task_planning_problem = PlanningTaskComposerProblemUPtr.make_unique(
+        task_planning_problem = t_task_comp.PlanningTaskComposerProblemUPtr.make_unique(
             self.planner.t_env, self.task_data, self.profile
         )
 
-        task_problem = PlanningTaskComposerProblemUPtr_as_TaskComposerProblemUPtr(
-            task_planning_problem
+        task_problem = (
+            t_task_comp.PlanningTaskComposerProblemUPtr_as_TaskComposerProblemUPtr(
+                task_planning_problem
+            )
         )
-        self.task_input = TaskComposerInput(task_problem)
+        self.task_input = t_task_comp.TaskComposerInput(task_problem)
 
         # Create an executor to run the task
         self.task_executor = self.factory.createTaskComposerExecutor("TaskflowExecutor")
