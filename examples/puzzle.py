@@ -1,9 +1,10 @@
-import time
 import os, sys
 
 # TODO
 # Seems to me that a `Vector3d` class isn't available from tesseract?
 from compas.geometry import Vector
+
+from examples.utils import create_trajopt_profile_puzzle_example, TesseractPlanner
 
 # this example is transliterated from C++, you'll find the original here:
 # https://github.com/tesseract-robotics/tesseract_planning/blob/master/tesseract_examples/src/puzzle_piece_example.cpp
@@ -22,199 +23,13 @@ from tesseract_viewer_python.tesseract_robotics_viewer import TesseractViewer
 os.environ["TRAJOPT_LOG_THRESH"] = "DEBUG"
 
 import numpy as np
-from tesseract_robotics.tesseract_command_language import (
-    ProfileDictionary,
-    CompositeInstruction,
-    CartesianWaypoint,
-    MoveInstruction,
-    CartesianWaypointPoly_wrap_CartesianWaypoint,
-    MoveInstructionPoly_wrap_MoveInstruction,
-    MoveInstructionType_LINEAR,
-    AnyPoly_wrap_CompositeInstruction,
-    AnyPoly_as_CompositeInstruction,
-    toJointTrajectory,
-)
 from tesseract_robotics.tesseract_common import (
     Isometry3d,
     ManipulatorInfo,
     GeneralResourceLocator,
-    JointTrajectory,
-    AnyPoly,
-)
-from tesseract_robotics.tesseract_environment import Environment
-from tesseract_robotics.tesseract_motion_planners import assignCurrentStateAsSeed
-from tesseract_robotics.tesseract_motion_planners_trajopt import (
-    TrajOptDefaultPlanProfile,
-    TrajOptDefaultCompositeProfile,
-    TrajOptDefaultSolverProfile,
-    ProfileDictionary_addProfile_TrajOptPlanProfile,
-    ProfileDictionary_addProfile_TrajOptCompositeProfile,
-    ProfileDictionary_addProfile_TrajOptSolverProfile,
-    BasicTrustRegionSQPParameters,
-    ModelType,
-    CollisionEvaluatorType_SINGLE_TIMESTEP,
 )
 
-from tesseract_robotics.tesseract_task_composer import (
-    TaskComposerPluginFactory,
-    TaskComposerDataStorage,
-    TaskComposerInput,
-    PlanningTaskComposerProblemUPtr,
-    PlanningTaskComposerProblemUPtr_as_TaskComposerProblemUPtr,
-)
-
-from utils import get_environment, tesseract_task_composer_config_file, as_joint_trajectory
-
-TRAJOPT_DEFAULT_NAMESPACE = "TrajOptMotionPlannerTask"
-
-
-def create_trajopt_profile() -> ProfileDictionary:
-    # Create TrajOpt Profile
-    trajopt_plan_profile = TrajOptDefaultPlanProfile()
-    trajopt_plan_profile.cartesian_coeff = np.array(
-        [10, 10, 10, 10, 10, 0], dtype=np.float64
-    )
-
-    trajopt_composite_profile = TrajOptDefaultCompositeProfile()
-    trajopt_composite_profile.collision_constraint_config.enabled = False
-    trajopt_composite_profile.collision_cost_config.enabled = True
-    trajopt_composite_profile.collision_cost_config.safety_margin = 0.025
-    trajopt_composite_profile.collision_cost_config.type = (
-        CollisionEvaluatorType_SINGLE_TIMESTEP
-    )
-    trajopt_composite_profile.collision_cost_config.coeff = 20
-
-    trajopt_solver_profile = TrajOptDefaultSolverProfile()
-
-    btr_params = BasicTrustRegionSQPParameters()
-    btr_params.max_iter = 200
-    btr_params.min_approx_improve = 1e-3
-    btr_params.min_trust_box_size = 1e-3
-
-    mt = ModelType(ModelType.OSQP)
-    # seems to do its job: fails when I set gurobi; not build with that options
-    # mt = ModelType(ModelType.GUROBI)
-
-    trajopt_solver_profile.opt_info = btr_params
-    trajopt_solver_profile.convex_solver = mt
-
-    # Create profile dictionary
-    trajopt_profiles = ProfileDictionary()
-    ProfileDictionary_addProfile_TrajOptPlanProfile(
-        trajopt_profiles, TRAJOPT_DEFAULT_NAMESPACE, "CARTESIAN", trajopt_plan_profile
-    )
-
-    ProfileDictionary_addProfile_TrajOptSolverProfile(
-        trajopt_profiles, TRAJOPT_DEFAULT_NAMESPACE, "DEFAULT", trajopt_solver_profile
-    )
-
-    ProfileDictionary_addProfile_TrajOptCompositeProfile(
-        trajopt_profiles,
-        TRAJOPT_DEFAULT_NAMESPACE,
-        "DEFAULT",
-        trajopt_composite_profile,
-    )
-    return trajopt_profiles
-
-
-def _move_instruction_from_iso(
-    goal: Isometry3d, move_type=MoveInstructionType_LINEAR
-) -> MoveInstructionPoly_wrap_MoveInstruction:
-    cwp_cw = CartesianWaypointPoly_wrap_CartesianWaypoint(CartesianWaypoint(goal))
-    mip_mi = MoveInstructionPoly_wrap_MoveInstruction(
-        MoveInstruction(cwp_cw, move_type, "CARTESIAN")
-    )
-    return mip_mi
-
-
-class Planner:
-    def __init__(
-        self, mi: ManipulatorInfo, t_env: Environment, profile_dict: ProfileDictionary
-    ):
-        # Create Task Composer Plugin Factory
-        fs_pth = tesseract_task_composer_config_file()
-        self.factory = TaskComposerPluginFactory(fs_pth)
-
-        # Create Program
-        self.program = CompositeInstruction("DEFAULT")
-        self.program.setManipulatorInfo(mi)
-        self.t_env = t_env
-
-        self.profiles = profile_dict
-        self.task_data = TaskComposerDataStorage()
-
-    def create_task(self):
-        """create task after all poses have been added"""
-        # Create an AnyPoly containing the program. This explicit step is required because the Python bindings do not
-        # support implicit conversion from the CompositeInstruction to the AnyPoly.
-        self.program_anypoly = AnyPoly_wrap_CompositeInstruction(self.program)
-
-        # Create the task composer node. In this case the FreespacePipeline is used. Many other are available.
-        # self.task = self.factory.createTaskComposerNode("FreespacePipeline")
-
-        # # Create task
-        self.task = self.factory.createTaskComposerNode("TrajOptPipeline")
-        self.input_key = self.task.getInputKeys()[0]
-        self.output_key = self.task.getOutputKeys()[0]
-
-        # Create Task Input Data
-        self.input_data = TaskComposerDataStorage()
-        self.input_data.setData(self.input_key, self.program_anypoly)
-
-        # Create the task data storage and set the data
-        self.task_data.setData(self.input_key, self.program_anypoly)
-
-        # Create the task problem and input
-        # self.problem = PlanningTaskComposerProblem(
-        #     self.t_env,
-        #     self.input_data,
-        #     self.profiles
-        # )
-
-        # Create the task problem and input
-        self.task_planning_problem = PlanningTaskComposerProblemUPtr.make_unique(
-            self.t_env, self.task_data, self.profiles
-        )
-
-        self.task_problem = PlanningTaskComposerProblemUPtr_as_TaskComposerProblemUPtr(
-            self.task_planning_problem
-        )
-        self.task_input = TaskComposerInput(self.task_problem)
-
-        # Create an executor to run the task
-        self.task_executor = self.factory.createTaskComposerExecutor("TaskflowExecutor")
-
-    def add_poses(self, tool_poses):
-        # Create cartesian waypoint
-        for n, i in enumerate(tool_poses):
-            plan_instruction = _move_instruction_from_iso(i)
-            plan_instruction.setDescription(f"waypoint_{n}")
-            self.program.appendMoveInstruction(plan_instruction)
-
-    def plan(self) -> AnyPoly_as_CompositeInstruction:
-
-        # Assign the current state as the seed for cartesian waypoints
-        assignCurrentStateAsSeed(self.program, self.t_env)
-
-        start = time.time()
-        # Run the task and wait for completion
-        future = self.task_executor.plan(self.task.get(), self.task_input)
-        future.wait()
-        stop = time.time() - start
-
-        print(f"Planning took {stop} seconds.")
-
-        # Retrieve the output, converting the AnyPoly back to a CompositeInstruction
-        try:
-            results = AnyPoly_as_CompositeInstruction(
-                self.task_input.data_storage.getData(self.output_key)
-            )
-        except RuntimeError as e:
-            print(e)
-            return None
-        else:
-            print(results)
-            return results
+from utils import get_environment
 
 
 def make_puzzle_tool_poses() -> list[Isometry3d]:
@@ -245,7 +60,7 @@ def make_puzzle_tool_poses() -> list[Isometry3d]:
 
         norm.unitize()
 
-        temp_x = (pos*-1).unitized()
+        temp_x = (pos * -1).unitized()
         y_axis = norm.cross(temp_x).unitized()
         x_axis = y_axis.cross(norm).unitized()
 
@@ -296,29 +111,25 @@ class PuzzlePieceExample:
         ]
         joint_pos = [-0.785398, 0.4, 0.0, -1.9, 0.0, 1.0, 0.0]
 
-        # joint_state = JointState(joint_names, joint_pos)
-
-        self.env.setState(joint_names, np.array(joint_pos))
-
         mi = create_manip()
 
         # Get Tool Poses
         tool_poses = make_puzzle_tool_poses()
 
-        profile_dict = create_trajopt_profile()
+        profile_dict = create_trajopt_profile_puzzle_example()
 
-        pl = Planner(mi, env, profile_dict)
-        pl.add_poses(tool_poses)
-        pl.create_task()
-        results = pl.plan()
+        pl = TesseractPlanner(joint_names, mi, env)
+        pl.profile_dict = profile_dict
+        pl.t_env.setState(joint_names, np.array(joint_pos))
+        pl.update_env()
 
-        joint_trajectory = as_joint_trajectory(pl.task, pl.task_data)
+        pl.add_cartesian_poses(tool_poses)
 
-        # print("Final trajectory is collision-free")
-        # return input.isSuccessful()
+        pl.task_composer.add_program(pl.program, pl.manip_info)
 
-        # return results
-        return joint_trajectory
+        is_aborted, is_successful = pl.plan()
+
+        pl.plot_trajectory(is_aborted, is_successful)
 
 
 if __name__ == "__main__":
@@ -339,10 +150,5 @@ if __name__ == "__main__":
 
     ppe = PuzzlePieceExample(env)
     results = ppe.run()
-
-    # Update the viewer with the results to animate the trajectory
-    # Open web browser to http://localhost:8000 to view the results
-    viewer.update_trajectory(results)
-    viewer.plot_trajectory(results, manip_info)
 
     input("press to exit the viewer ( http://localhost:8000 )")
