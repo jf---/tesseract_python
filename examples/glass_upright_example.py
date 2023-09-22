@@ -35,6 +35,7 @@ class GlassUprightExample:
         ) = self._initial_joint_state()
         self.planner = TesseractPlanner(self.joint_names, manip_info, env)
         self.planner.t_env.setState(self.joint_names, self.joint_start_pos)
+        # self.planner.update_env()
 
     def add_sphere(self) -> te.AddLinkCommand:
         link_sphere = tsg.Link("sphere_attached")
@@ -102,22 +103,21 @@ class GlassUprightExample:
         self.planner.update_env()
 
         profile = create_trajopt_profile_glass_example()
-        self.planner.profile_dict = profile
+        self.planner.profile = profile
 
-        self.planner.add_joint_pose(
-            self.joint_start_pos,
-        )
-        self.planner.add_joint_pose(
-            self.joint_end_pos,
-        )
+        self.planner.add_joint_pose(self.joint_start_pos, group_name="UPRIGHT")
+        self.planner.add_joint_pose(self.joint_end_pos, group_name="UPRIGHT")
 
         self.planner.task_composer.add_program(
             self.planner.program, self.planner.manip_info
         )
 
-        is_aborted, is_successful = self.planner.plan()
+        self.planner.program.setProfile("UPRIGHT")
+        # self.planner.create_viewer()
 
+        is_aborted, is_successful = self.planner.plan()
         self.planner.plot_trajectory(is_aborted, is_successful)
+        # response = self.planner.plan_ompl()
 
         return is_aborted, is_successful
 
@@ -126,6 +126,7 @@ def run():
     env, manip_info, joint_names = get_environment(
         "package://tesseract_support/urdf/lbr_iiwa_14_r820"
     )
+
 
     print(env, manip_info)
 

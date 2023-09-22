@@ -1,17 +1,33 @@
 import os, time
 from collections import Counter
+from pathlib import Path
 
 import numpy as np
 
+from examples.tesseract_planning_example_composer import OMPL_DEFAULT_NAMESPACE
+
+TESSERACT_SUPPORT_DIR = os.environ["TESSERACT_RESOURCE_PATH"]
+TESSERACT_TASK_COMPOSER_DIR = os.environ["TESSERACT_TASK_COMPOSER_CONFIG_FILE"]
+TRAJOPT_DEFAULT_NAMESPACE = "TrajOptMotionPlannerTask"
+os.environ["TRAJOPT_LOG_THRESH"] = "DEBUG"
+
 from tesseract_robotics import tesseract_command_language as t_lang
 from tesseract_robotics import tesseract_common as t_common
+from tesseract_robotics.tesseract_command_language import ProfileDictionary
 from tesseract_robotics.tesseract_environment import Environment
-from tesseract_robotics.tesseract_motion_planners import assignCurrentStateAsSeed
+from tesseract_robotics.tesseract_motion_planners import (
+    assignCurrentStateAsSeed,
+    PlannerRequest,
+    PlannerResponse,
+)
 from tesseract_robotics.tesseract_motion_planners_descartes import (
     ProfileDictionary_addProfile_DescartesPlanProfileD,
 )
 from tesseract_robotics.tesseract_motion_planners_ompl import (
     ProfileDictionary_addProfile_OMPLPlanProfile,
+    OMPLDefaultPlanProfile,
+    RRTConnectConfigurator,
+    OMPLMotionPlanner,
 )
 from tesseract_robotics.tesseract_motion_planners_simple import (
     ProfileDictionary_addProfile_SimplePlannerPlanProfile,
@@ -21,10 +37,6 @@ from tesseract_robotics import tesseract_motion_planners_trajopt as t_mpl_trajop
 from tesseract_robotics import tesseract_task_composer as t_task_comp
 
 from tesseract_viewer_python.tesseract_robotics_viewer import TesseractViewer
-
-TESSERACT_SUPPORT_DIR = os.environ["TESSERACT_RESOURCE_PATH"]
-TESSERACT_TASK_COMPOSER_DIR = os.environ["TESSERACT_TASK_COMPOSER_CONFIG_FILE"]
-TRAJOPT_DEFAULT_NAMESPACE = "TrajOptMotionPlannerTask"
 
 task_composer_filename = os.environ["TESSERACT_TASK_COMPOSER_CONFIG_FILE"]
 
@@ -138,6 +150,28 @@ def create_trajopt_profile_glass_example() -> t_lang.ProfileDictionary:
     composite_profile.smooth_jerks = False
     composite_profile.velocity_coeff = np.array([1.0])
 
+    trajopt_solver_profile = t_mpl_trajopt.TrajOptDefaultSolverProfile()
+
+    btr_params = t_mpl_trajopt.BasicTrustRegionSQPParameters()
+    # btr_params.max_iter = 200
+    btr_params.max_iter = 20000000
+    btr_params.min_approx_improve = 1e-4
+    btr_params.min_trust_box_size = 1e-2
+    btr_params.trust_expand_ratio
+    btr_params.log_dir = str(Path(__file__).parent)
+    btr_params.log_results = True
+
+    mt = t_mpl_trajopt.ModelType(t_mpl_trajopt.ModelType.QPOASES)  # 1.4 sec
+    # mt = t_mpl_trajopt.ModelType(t_mpl_trajopt.ModelType.AUTO_SOLVER)
+
+    # TODO: is it possible that this just wont solve without the t_mpl_trajopt.ModelType.BPMPD solver
+
+    # seems to do its job: fails when I set gurobi; not build with that options
+    # mt = ModelType(ModelType.GUROBI)
+
+    trajopt_solver_profile.opt_info = btr_params
+    trajopt_solver_profile.convex_solver = mt
+
     # TODO: add a method `add_profile` that add the correct profile
     # by inspecting composite_profile.__class__ to have something a little more
     # pythonic
@@ -147,7 +181,7 @@ def create_trajopt_profile_glass_example() -> t_lang.ProfileDictionary:
     )
 
     plan_profile = t_mpl_trajopt.TrajOptDefaultPlanProfile()
-    plan_profile.joint_coeff = np.ones((7,))
+    # plan_profile.joint_coeff = np.ones((7,))
     plan_profile.cartesian_coeff = np.array(
         [0.0, 0.0, 0.0, 5.0, 5.0, 5.0],
     )
@@ -155,6 +189,11 @@ def create_trajopt_profile_glass_example() -> t_lang.ProfileDictionary:
     t_mpl_trajopt.ProfileDictionary_addProfile_TrajOptPlanProfile(
         profile, TRAJOPT_DEFAULT_NAMESPACE, "UPRIGHT", plan_profile
     )
+
+    t_mpl_trajopt.ProfileDictionary_addProfile_TrajOptSolverProfile(
+        profile, TRAJOPT_DEFAULT_NAMESPACE, "UPRIGHT", trajopt_solver_profile
+    )
+
     return profile
 
 
@@ -178,7 +217,8 @@ def create_trajopt_profile_puzzle_example() -> t_lang.ProfileDictionary:
 
     btr_params = t_mpl_trajopt.BasicTrustRegionSQPParameters()
     btr_params.max_iter = 200
-    btr_params.min_approx_improve = 1e-3
+    btr_params.max_iter = 20000000
+    btr_params.min_approx_improve = 1e-6
     btr_params.min_trust_box_size = 1e-3
 
     mt = t_mpl_trajopt.ModelType(t_mpl_trajopt.ModelType.OSQP)
@@ -194,15 +234,15 @@ def create_trajopt_profile_puzzle_example() -> t_lang.ProfileDictionary:
         trajopt_profiles, TRAJOPT_DEFAULT_NAMESPACE, "CARTESIAN", trajopt_plan_profile
     )
 
-    t_mpl_trajopt.ProfileDictionary_addProfile_TrajOptSolverProfile(
-        trajopt_profiles, TRAJOPT_DEFAULT_NAMESPACE, "DEFAULT", trajopt_solver_profile
-    )
-
     t_mpl_trajopt.ProfileDictionary_addProfile_TrajOptCompositeProfile(
         trajopt_profiles,
         TRAJOPT_DEFAULT_NAMESPACE,
         "DEFAULT",
         trajopt_composite_profile,
+    )
+
+    t_mpl_trajopt.ProfileDictionary_addProfile_TrajOptSolverProfile(
+        trajopt_profiles, TRAJOPT_DEFAULT_NAMESPACE, "DEFAULT", trajopt_solver_profile
     )
     return trajopt_profiles
 
@@ -219,18 +259,27 @@ class TesseractPlanner:
 
         self.manip_info = mi
         self.t_env = t_env
-        self.profile_dict = t_lang.ProfileDictionary()
         self.task_composer = TesseractTaskComposer(self)
+        self.profile = t_lang.ProfileDictionary()
 
         self.program = t_lang.CompositeInstruction(
             "DEFAULT", t_lang.CompositeInstructionOrder_ORDERED
         )
         self.program.setManipulatorInfo(self.manip_info)
-        self.task_composer.add_program(self.program, self.manip_info)
+        # self.task_composer.add_program(self.program, self.manip_info)
 
         # self.joint_names = [i for i in self.t_env.getJointNames()]
 
         self._cartesian_point_counter = 0
+
+    @property
+    def profile(self):
+        return self._profile
+
+    @profile.setter
+    def profile(self, value: ProfileDictionary):
+        self._profile = value
+        self.task_composer.profile = value
 
     def update_env(self):
         # Get the state solver. This must be called again after environment is updated
@@ -362,10 +411,43 @@ class TesseractPlanner:
     def plan(self) -> tuple[bool, bool]:
         # Assign the current state as the seed for cartesian waypoints
         assignCurrentStateAsSeed(self.program, self.t_env)
+        self.task_composer.add_program(self.program, self.manip_info)
 
         is_aborted, is_successful = self.task_composer.run()
 
         return is_aborted, is_successful
+
+    def plan_ompl(self):
+        # Initialize the OMPL planner for RRTConnect algorithm
+        plan_profile = OMPLDefaultPlanProfile()
+        plan_profile.planners.clear()
+        plan_profile.planners.append(RRTConnectConfigurator())
+
+        # Create the profile dictionary. Profiles can be used to customize the behavior of the planner. The module
+        # level function `ProfileDictionary_addProfile_OMPLPlanProfile` is used to add a profile to the dictionary. All
+        # profile types have associated profile dictionary functions.
+        profiles = ProfileDictionary()
+        ProfileDictionary_addProfile_OMPLPlanProfile(
+            profiles, OMPL_DEFAULT_NAMESPACE, "TEST_PROFILE", plan_profile
+        )
+
+        cur_state = self.t_env.getState()
+
+        # Create the planning request and run the planner
+        request = PlannerRequest()
+        request.instructions = self.program
+        request.env = self.t_env
+        request.env_state = cur_state
+        request.profiles = profiles
+
+        ompl_planner = OMPLMotionPlanner(OMPL_DEFAULT_NAMESPACE)
+
+        response: PlannerResponse = ompl_planner.solve(request)
+        assert response.successful
+        results_instruction = response.results
+
+        print("solved OMPL")
+        return response
 
 
 class TesseractTaskComposer:  # TODO: poorly named nothing better comes to mind
