@@ -3,6 +3,20 @@ Classes
 *******
 
 
+JointGroupInstructionInfo Class
+===================================================================================================
+.. autoclass:: tesseract_robotics.tesseract_motion_planners_simple.JointGroupInstructionInfo
+   :noindex:
+   :exclude-members: thisown
+   :members:
+
+KinematicGroupInstructionInfo Class
+===================================================================================================
+.. autoclass:: tesseract_robotics.tesseract_motion_planners_simple.KinematicGroupInstructionInfo
+   :noindex:
+   :exclude-members: thisown
+   :members:
+
 SimpleMotionPlanner Class
 ===================================================================================================
 .. autoclass:: tesseract_robotics.tesseract_motion_planners_simple.SimpleMotionPlanner
@@ -56,74 +70,49 @@ SimplePlannerPlanProfile Class
 Functions
 *********
 
-ProfileDictionary_addProfile_SimplePlannerCompositeProfile Function
+generateInterpolatedProgram Function
 ===================================================================================================
-.. autofunction:: tesseract_robotics.tesseract_motion_planners_simple.ProfileDictionary_addProfile_SimplePlannerCompositeProfile
+.. autofunction:: tesseract_robotics.tesseract_motion_planners_simple.generateInterpolatedProgram
    :noindex:
 
-ProfileDictionary_addProfile_SimplePlannerPlanProfile Function
+getClosestJointSolution Function
 ===================================================================================================
-.. autofunction:: tesseract_robotics.tesseract_motion_planners_simple.ProfileDictionary_addProfile_SimplePlannerPlanProfile
+.. autofunction:: tesseract_robotics.tesseract_motion_planners_simple.getClosestJointSolution
    :noindex:
 
-ProfileDictionary_getProfileEntry_SimplePlannerCompositeProfile Function
+getInterpolatedInstructions Function
 ===================================================================================================
-.. autofunction:: tesseract_robotics.tesseract_motion_planners_simple.ProfileDictionary_getProfileEntry_SimplePlannerCompositeProfile
+.. autofunction:: tesseract_robotics.tesseract_motion_planners_simple.getInterpolatedInstructions
    :noindex:
 
-ProfileDictionary_getProfileEntry_SimplePlannerPlanProfile Function
+interpolate Function
 ===================================================================================================
-.. autofunction:: tesseract_robotics.tesseract_motion_planners_simple.ProfileDictionary_getProfileEntry_SimplePlannerPlanProfile
+.. autofunction:: tesseract_robotics.tesseract_motion_planners_simple.interpolate
    :noindex:
 
-ProfileDictionary_getProfile_SimplePlannerCompositeProfile Function
+interpolateCartCartWaypoint Function
 ===================================================================================================
-.. autofunction:: tesseract_robotics.tesseract_motion_planners_simple.ProfileDictionary_getProfile_SimplePlannerCompositeProfile
+.. autofunction:: tesseract_robotics.tesseract_motion_planners_simple.interpolateCartCartWaypoint
    :noindex:
 
-ProfileDictionary_getProfile_SimplePlannerPlanProfile Function
+interpolateCartJointWaypoint Function
 ===================================================================================================
-.. autofunction:: tesseract_robotics.tesseract_motion_planners_simple.ProfileDictionary_getProfile_SimplePlannerPlanProfile
+.. autofunction:: tesseract_robotics.tesseract_motion_planners_simple.interpolateCartJointWaypoint
    :noindex:
 
-ProfileDictionary_hasProfileEntry_SimplePlannerCompositeProfile Function
+interpolateJointCartWaypoint Function
 ===================================================================================================
-.. autofunction:: tesseract_robotics.tesseract_motion_planners_simple.ProfileDictionary_hasProfileEntry_SimplePlannerCompositeProfile
+.. autofunction:: tesseract_robotics.tesseract_motion_planners_simple.interpolateJointCartWaypoint
    :noindex:
 
-ProfileDictionary_hasProfileEntry_SimplePlannerPlanProfile Function
+interpolateJointJointWaypoint Function
 ===================================================================================================
-.. autofunction:: tesseract_robotics.tesseract_motion_planners_simple.ProfileDictionary_hasProfileEntry_SimplePlannerPlanProfile
+.. autofunction:: tesseract_robotics.tesseract_motion_planners_simple.interpolateJointJointWaypoint
    :noindex:
 
-ProfileDictionary_hasProfile_SimplePlannerCompositeProfile Function
+interpolate_waypoint Function
 ===================================================================================================
-.. autofunction:: tesseract_robotics.tesseract_motion_planners_simple.ProfileDictionary_hasProfile_SimplePlannerCompositeProfile
-   :noindex:
-
-ProfileDictionary_hasProfile_SimplePlannerPlanProfile Function
-===================================================================================================
-.. autofunction:: tesseract_robotics.tesseract_motion_planners_simple.ProfileDictionary_hasProfile_SimplePlannerPlanProfile
-   :noindex:
-
-ProfileDictionary_removeProfileEntry_SimplePlannerCompositeProfile Function
-===================================================================================================
-.. autofunction:: tesseract_robotics.tesseract_motion_planners_simple.ProfileDictionary_removeProfileEntry_SimplePlannerCompositeProfile
-   :noindex:
-
-ProfileDictionary_removeProfileEntry_SimplePlannerPlanProfile Function
-===================================================================================================
-.. autofunction:: tesseract_robotics.tesseract_motion_planners_simple.ProfileDictionary_removeProfileEntry_SimplePlannerPlanProfile
-   :noindex:
-
-ProfileDictionary_removeProfile_SimplePlannerCompositeProfile Function
-===================================================================================================
-.. autofunction:: tesseract_robotics.tesseract_motion_planners_simple.ProfileDictionary_removeProfile_SimplePlannerCompositeProfile
-   :noindex:
-
-ProfileDictionary_removeProfile_SimplePlannerPlanProfile Function
-===================================================================================================
-.. autofunction:: tesseract_robotics.tesseract_motion_planners_simple.ProfileDictionary_removeProfile_SimplePlannerPlanProfile
+.. autofunction:: tesseract_robotics.tesseract_motion_planners_simple.interpolate_waypoint
    :noindex:
 
 Container Templates
